@@ -2,7 +2,7 @@ import json
 import os
 from datetime import datetime
 
-from llm_base_model import init_llm_with_memory
+# from llm_base_model import init_llm_with_memory
 # from promt提示词 import prompt_creat
 
 
@@ -53,11 +53,12 @@ def clear_memory(memory):
 
 # 调用示例（在初始化对话链后）
 if __name__ == "__main__":
-    chat_chain = init_llm_with_memory()
-    load_memory_from_file(chat_chain.memory,session_id="小明")  # 启动时加载
-    # message = "我叫小明，今年25岁，请你写一首关于春天的的诗歌。"
-    # format_prompt = prompt_creat(message)
-    response = chat_chain.invoke({"input": "你知道我是谁吗？"})
-    # 对话结束后保存
-    save_memory_to_file(chat_chain.memory,session_id="小明")
-    print(response["response"])
+    # chat_chain = init_llm_with_memory()
+    # load_memory_from_file(chat_chain.memory,session_id="小明")  # 启动时加载
+    # # message = "我叫小明，今年25岁，请你写一首关于春天的的诗歌。"
+    # # format_prompt = prompt_creat(message)
+    # response = chat_chain.invoke({"input": "你知道我是谁吗？"})
+    # # 对话结束后保存
+    # save_memory_to_file(chat_chain.memory,session_id="小明")
+    # print(response["response"])
+    pass
