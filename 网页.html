@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LangChain 智能问答系统</title>
+    <style>
+        /* 全局样式重置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+        }
+
+        /* 渐变背景 */
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        /* 主卡片容器 */
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            padding: 30px;
+            margin-top: 50px;
+        }
+
+        /* 标题样式 */
+        .title {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 30px;
+            font-size: 28px;
+            font-weight: 600;
+            position: relative;
+        }
+
+        .title::after {
+            content: "";
+            display: block;
+            width: 80px;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 2px;
+            margin: 10px auto 0;
+        }
+
+        /* 输入组通用样式 */
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #4a5568;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        /* 输入框样式 */
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .form-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* 密码输入框 */
+        #password {
+            font-family: monospace;
+        }
+
+        /* 文本域样式 */
+        #question {
+            min-height: 120px;
+            resize: vertical;
+            line-height: 1.5;
+        }
+
+        /* 提交按钮 */
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 25px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        /* 回答区域 */
+        .answer-section {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 150px;
+            background-color: #f8fafc;
+        }
+
+        /* 加载动画 */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #667eea;
+            font-size: 15px;
+            height: 100px;
+        }
+
+        .loading::after {
+            content: "";
+            width: 20px;
+            height: 20px;
+            border: 3px solid #667eea;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* 错误提示 */
+        .error {
+            color: #e53e3e;
+            line-height: 1.6;
+        }
+
+        /* 成功回答 */
+        .answer-content {
+            color: #2d3748;
+            line-height: 1.8;
+            font-size: 15px;
+        }
+
+        /* 响应式适配 */
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+                margin-top: 20px;
+            }
+
+            .title {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">LangChain 智能问答系统</h1>
+
+        <!-- 会话ID输入框 -->
+        <div class="input-group">
+            <label for="sessionId">会话ID（Session ID）</label>
+            <input type="text" id="sessionId" class="form-input"
+                   placeholder="输入会话ID（如user_001，留空则用默认值）" value="default">
+        </div>
+
+        <!-- 密码验证输入框 -->
+        <div class="input-group">
+            <label for="password">验证密码</label>
+            <input type="password" id="password" class="form-input"
+                   placeholder="输入验证密码（默认测试密码：123456）">
+        </div>
+
+        <!-- 问题输入框 -->
+        <div class="input-group">
+            <label for="question">提问内容</label>
+            <textarea id="question" class="form-input" placeholder="请输入你想要提问的内容..."></textarea>
+        </div>
+
+        <!-- 提交按钮 -->
+        <button class="submit-btn" id="submit">提交提问</button>
+
+        <!-- 回答展示区域 -->
+        <div class="answer-section" id="answer">
+            <div style="color: #718096; text-align: center; line-height: 150px;">
+                请输入问题并提交，回答将展示在这里
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 获取DOM元素
+        const submitBtn = document.getElementById('submit');
+        const sessionIdInput = document.getElementById('sessionId');
+        const passwordInput = document.getElementById('password');
+        const questionInput = document.getElementById('question');
+        const answerDiv = document.getElementById('answer');
+
+        // 提交按钮点击事件
+        submitBtn.addEventListener('click', async () => {
+            // 1. 获取输入值
+            const sessionId = sessionIdInput.value.trim() || "default";
+            const password = passwordInput.value.trim();
+            const question = questionInput.value.trim();
+
+            // 2. 前端验证
+            if (!password) {
+                alert('请输入验证密码！');
+                passwordInput.focus();
+                return;
+            }
+            if (!question) {
+                alert('请输入提问内容！');
+                questionInput.focus();
+                return;
+            }
+
+            // 3. 显示加载状态
+            answerDiv.innerHTML = `
+                <div class="loading">
+                    正在处理你的问题，请稍候
+                </div>
+            `;
+
+            try {
+                // 4. 调用后端API（包含session_id、password、question）
+                const response = await fetch('http://127.0.0.1:8000/api/qa', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        password: password,
+                        question: question
+                    })
+                });
+
+                // 5. 解析响应
+                const result = await response.json();
+                console.log("后端返回数据：", result);
+
+                // 6. 展示结果
+                if (result.code === 200) {
+                    answerDiv.innerHTML = `
+                        <div class="answer-content">${result.data}</div>
+                    `;
+                } else {
+                    answerDiv.innerHTML = `
+                        <div class="error">❌ ${result.msg}</div>
+                    `;
+                }
+            } catch (e) {
+                // 网络/接口异常
+                answerDiv.innerHTML = `
+                    <div class="error">❌ 网络异常：${e.message}</div>
+                `;
+                console.error("请求失败：", e);
+            }
+        });
+    </script>
+</body>
+</html>

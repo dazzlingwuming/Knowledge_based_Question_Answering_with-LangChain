@@ -1,8 +1,9 @@
-from fastapi import FastAPI
+from fast端口 import FastAPI
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
+import asyncio
 
 # 初始化FastAPI应用
 app = FastAPI()
@@ -25,10 +26,11 @@ async def qa_endpoint(query: QAQuery):
     try:
         if not query.question.strip():
             return {"code": 400, "msg": "问题不能为空", "data": ""}
-        # 调用问答链
-        answer = qa_chain.run(question=query.question)
+        # 调用问答链（LLMChain.run 是同步/阻塞的；在 async 端点中放到线程池执行）
+        answer = await asyncio.to_thread(qa_chain.run, question=query.question)
         return {"code": 200, "msg": "success", "data": answer}
     except Exception as e:
         return {"code": 500, "msg": f"服务异常：{str(e)}", "data": ""}
 
-# 启动命令：uvicorn your_file_name:app --reload
+# 启动命令：uvicorn app:app --reload
+
