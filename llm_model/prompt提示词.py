@@ -9,10 +9,10 @@
 
 
 #==================提示词直接写入模型调用脚本===================================================
-from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 
 from data.conversa_history.历史保存 import load_memory_from_file, save_memory_to_file
-from llm_base_model import init_llm_with_memory
+from llm_model.llm_base_model import init_llm_with_memory
 
 system_template = """你是一个精准、简洁的聊天助手，严格遵守以下规则：
 1. 仅回答用户当前提出的问题，**绝不模拟、虚构任何后续的用户提问，也不模拟自己的再次回复**；

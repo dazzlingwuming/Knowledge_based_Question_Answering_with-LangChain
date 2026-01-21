@@ -1,0 +1,330 @@
+from dotenv import load_dotenv
+import os
+from langchain_core.tools import tool
+from langchain_classic.agents import initialize_agent, AgentType
+from langchain_community.tools import WikipediaQueryRun
+from langchain_community.utilities import WikipediaAPIWrapper
+from langchain_openai import OpenAI
+from langchain_classic.memory import ConversationBufferMemory
+from langchain_classic.chains import ConversationChain
+from langchain_core.prompts import PromptTemplate  # 新增：导入PromptTemplate
+
+from data.conversa_history.历史保存 import load_memory_from_file, save_memory_to_file
+
+load_dotenv()
+api_key = os.getenv("ZHIPU_API_KEY")
+api_url = os.getenv("ZHIPU_API_URL")
+model_names = "Qwen/Qwen3-8B"
+
+# 单轮对话模型封装
+def init_zhipu_llm():
+    llm = OpenAI(
+        api_key=api_key,
+        base_url=api_url,
+        model=model_names,
+        temperature=1.0,
+        max_tokens=2048,
+        timeout=20
+    )
+    return llm
+
+'''# 多轮对话模型封装（整合自定义Prompt模板）
+def init_llm_with_memory(username = None ):
+    # 1. 初始化LLM
+    llm = OpenAI(
+        api_key=api_key,
+        base_url=api_url,
+        model="Qwen/Qwen2.5-Coder-32B-Instruct",
+        temperature=0.3,
+        max_tokens=2048,
+        top_p=0.3,
+    )
+       # 2. 初始化记忆组件（memory_key必须和Prompt模板中的{history}一致）
+    memory = ConversationBufferMemory(
+        memory_key="history",  # 对应Prompt模板中的{history}变量
+        return_messages=True,
+        ai_prefix="Assistant",
+        human_prefix="User"
+    )
+
+    # 3. 自定义Prompt模板（包含你的系统规则+history+input变量）
+    CUSTOM_PROMPT_TEMPLATE = """你是一个精准、简洁的聊天助手，严格遵守以下规则：
+1. 仅回答用户当前提出的问题，**绝不模拟、虚构任何后续的用户提问，也不模拟自己的再次回复**；
+2. 回复仅保留针对本次问题的核心答案，简洁明了，无多余内容；
+3. 即使用户的问题涉及对话格式，也仅解释问题本身，不生成示例对话；
+4. 回复中禁止出现「用户：」「AI：」「提问：」「回答：」等对话格式标识。
+
+当前对话历史：
+{history}
+
+用户当前问题：
+{input}
+
+AI回复："""
+
+    # 4. 创建PromptTemplate（绑定history和input变量）
+    prompt = PromptTemplate(
+        input_variables=["history", "input"],  # 声明模板中要替换的变量
+        template=CUSTOM_PROMPT_TEMPLATE
+    )
+
+    # 5. 构建对话链（关联LLM、记忆、自定义Prompt）
+    conversation_chain = ConversationChain(
+        llm=llm,
+        memory=memory,
+        prompt=prompt,  # 替换默认Prompt为自定义模板
+        verbose=True    # 开启后可看到模板填充后的完整Prompt（方便调试）
+    )
+    # 加载记忆
+    load_memory_from_file(conversation_chain.memory, session_id=username,file_path="../data/conversa_history/conversation_history.json")  # 启动时加载
+
+    return conversation_chain'''
+
+# 1. 修改init_llm_with_memory（统一变量名为chat_history）
+def init_llm_with_memory(username=None):
+    # 1. 初始化LLM（保留原有配置）
+    llm = OpenAI(
+        api_key=api_key,
+        base_url=api_url,
+        model="Qwen/Qwen2.5-Coder-32B-Instruct",
+        temperature=0.3,
+        max_tokens=2048,
+        top_p=0.3,
+    )
+
+    # 2. 初始化记忆组件（统一memory_key为chat_history，前缀和tool模型对齐）
+    memory = ConversationBufferMemory(
+        memory_key="chat_history",  # 统一为chat_history
+        return_messages=True,
+        ai_prefix="ai",  # 和tool模型统一
+        human_prefix="human",  # 和tool模型统一
+        input_key="input"  # 显式指定input_key，避免歧义
+    )
+
+    # 3. 自定义Prompt模板（变量名改为chat_history）
+    CUSTOM_PROMPT_TEMPLATE = """你是一个精准、简洁的聊天助手，严格遵守以下规则：
+1. 仅回答用户当前提出的问题，**绝不模拟、虚构任何后续的用户提问，也不模拟自己的再次回复**；
+2. 回复仅保留针对本次问题的核心答案，简洁明了，无多余内容；
+3. 即使用户的问题涉及对话格式，也仅解释问题本身，不生成示例对话；
+4. 回复中禁止出现「用户：」「AI：」「提问：」「回答：」等对话格式标识。
+
+当前对话历史：
+{chat_history}
+
+用户当前问题：
+{input}
+
+AI回复："""
+
+    # 4. 创建PromptTemplate（变量名改为chat_history）
+    prompt = PromptTemplate(
+        input_variables=["chat_history", "input"],  # 统一变量名
+        template=CUSTOM_PROMPT_TEMPLATE
+    )
+
+    # 5. 构建对话链
+    conversation_chain = ConversationChain(
+        llm=llm,
+        memory=memory,
+        prompt=prompt,
+        verbose=True
+    )
+    # 加载记忆（保留原有逻辑）
+    load_memory_from_file(conversation_chain.memory, session_id=username,
+                          file_path="../data/conversa_history/conversation_history.json")
+
+    return conversation_chain
+
+
+# 2. 修改init_llm_tool_model（对齐记忆组件配置）
+def init_llm_tool_model(username=None, tools=[]):
+    # 1. 初始化LLM（保留原有配置）
+    llm = OpenAI(
+        api_key=api_key,
+        base_url=api_url,
+        model="Qwen/Qwen2.5-Coder-32B-Instruct",
+        temperature=0.3,
+        max_tokens=2048,
+        top_p=0.3,
+    )
+
+    # 2. 自定义Prompt模板（保留原有逻辑，变量名已统一为chat_history）
+    CUSTOM_PROMPT_TEMPLATE = """你是一个智能助手，能够回答用户的问题并调用工具完成任务。
+    以下是对话历史：
+    {chat_history}
+
+    用户的问题：
+    {input}
+
+    请根据需要调用工具或直接回答用户的问题。"""
+
+    prompt = PromptTemplate(
+        input_variables=["chat_history", "input"],
+        template=CUSTOM_PROMPT_TEMPLATE
+    )
+
+    # 3. 加载维基百科Tool（保留原有逻辑）
+    wikipedia_api = WikipediaAPIWrapper(lang="zh", top_k_results=2)
+    wikipedia_tool = WikipediaQueryRun(api_wrapper=wikipedia_api,
+                                       description="一个可以在维基百科中搜索信息的工具。如果你想要了解某个人物、事件、地点等相关信息时，可以使用这个工具来获取准确的百科内容。",
+                                       return_direct=True)
+    tools = [wikipedia_tool] + tools
+
+    # 4. 初始化记忆组件（统一配置）
+    memory = ConversationBufferMemory(
+        memory_key="chat_history",  # 统一为chat_history
+        return_messages=True,
+        ai_prefix="ai",
+        human_prefix="human",
+        input_key="input"
+    )
+
+    # 5. 初始化Agent（保留原有逻辑）
+    agent = initialize_agent(
+        tools=tools,
+        llm=llm,
+        agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION,
+        verbose=True,
+        handle_parsing_errors="返回无法解析的结果，请简化回答",
+        memory=memory,
+        prompt=prompt
+    )
+
+    # 加载记忆（保留原有逻辑）
+    load_memory_from_file(agent.memory, session_id=username,
+                          file_path="../data/conversa_history/conversation_history.json")
+
+    return agent
+
+
+'''#创建可以调用工具的基础模型
+def init_llm_tool_model(username= None ,tools=[]):
+
+    # 1. 初始化LLM
+    llm = OpenAI(
+        api_key=api_key,
+        base_url=api_url,
+        model="Qwen/Qwen2.5-Coder-32B-Instruct",
+        temperature=0.3,
+        max_tokens=2048,
+        top_p=0.3,
+    )
+    #自定义提示词模板
+    CUSTOM_PROMPT_TEMPLATE = """你是一个智能助手，能够回答用户的问题并调用工具完成任务。
+    以下是对话历史：
+    {chat_history}
+
+    用户的问题：
+    {input}
+
+    请根据需要调用工具或直接回答用户的问题。"""
+
+    # 创建 PromptTemplate
+    prompt = PromptTemplate(
+        input_variables=["chat_history", "input"],  # 声明模板中的变量
+        template=CUSTOM_PROMPT_TEMPLATE
+    )
+
+    # 步骤2：加载LangChain现成的维基百科Tool（无需自己写API调用）
+    # WikipediaAPIWrapper：封装了维基百科API的所有底层逻辑
+    # WikipediaQueryRun：把API包装成LangChain Agent可调用的Tool
+    wikipedia_api = WikipediaAPIWrapper(lang="zh", top_k_results=2)  # 中文+返回3条结果
+    wikipedia_tool = WikipediaQueryRun(api_wrapper=wikipedia_api,description="一个可以在维基百科中搜索信息的工具。如果你想要了解某个人物、事件、地点等相关信息时，可以使用这个工具来获取准确的百科内容。", return_direct=True)
+
+    # 步骤3：定义Agent要使用的工具列表（可添加多个，比如计算器、搜索等）
+    tools = [wikipedia_tool]+tools
+    #初始化记忆组件
+    # 初始化记忆组件
+    memory = ConversationBufferMemory(
+        memory_key="history",
+        return_messages=True,
+        ai_prefix="ai",
+        human_prefix="human",
+        input_key="input"
+    )
+
+    # 步骤4：初始化Agent（核心：让模型自主决定是否调用工具）
+    agent = initialize_agent(
+        tools=tools,
+        llm=llm,
+        agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION,  # 适合对话+工具调用的Agent类型
+        verbose=True,  # 开启调试，能看到Agent的思考过程（是否调用工具、调用哪个）
+        handle_parsing_errors="返回无法解析的结果，请简化回答",  # 异常兜底
+        memory=memory,  # 添加记忆组件
+        prompt = prompt
+    )
+    #加入记忆加载
+    load_memory_from_file(agent.memory, session_id=username, file_path="../data/conversa_history/conversation_history.json")  # 启动时加载
+
+    return agent'''
+
+
+class LLMBaseModel:
+    def __init__(self, model_type: str = "memory", username: str = None, tools: list = []):
+        if model_type == "memory":
+            self.llm = init_llm_with_memory(username)
+        elif model_type == "tool":
+            self.llm = init_llm_tool_model(username, tools)
+
+    def chat_completion(self, input: str) -> dict:  # 改为返回统一字典
+        # 错误：{"input": {input}} → 正确：{"input": input}（去掉多余大括号）
+        response = self.llm.invoke({"input": input})
+        # 核心：统一解析两个模型的输出，返回相同格式
+        return self._unify_output_format(response)
+
+    def _unify_output_format(self, raw_response: dict) -> dict:
+        """统一两个模型的输出格式"""
+        # 1. 提取核心回答内容（兼容memory/tool模型）
+        if "response" in raw_response:
+            # memory模型（ConversationChain）
+            answer = raw_response["response"].strip()
+            chat_history = raw_response.get("history", [])
+        elif "output" in raw_response:
+            # tool模型（AgentExecutor）
+            answer = raw_response["output"].strip()
+            chat_history = raw_response.get("chat_history", [])
+        else:
+            answer = "暂无有效回答"
+            chat_history = []
+
+        # 2. 返回统一格式的字典
+        return {
+            "input": raw_response.get("input", ""),
+            "chat_history": chat_history,
+            "answer": answer  # 统一用answer字段返回核心回答
+        }
+
+if __name__ == "__main__":
+    # chat_chain = init_llm_with_memory()
+    # print("===== 带记忆的对话系统启动 =====")
+    #
+    # res1 = chat_chain.invoke({"input": "我是小李，请你写一首关于学习的五言绝句诗。只需要你回复诗的内容，不要其他多余的文字。"})
+    # print(f"助手回答：{res1['response']}\n")
+    #
+    # res2 = chat_chain.invoke({"input": "我刚才说我叫什么名字？要你做了什么事情？"})
+    # print(f"助手回答：{res2['response']}\n")
+    # @tool
+    # def abc_computer(a: str) -> int:
+    #     """abc计算。"""
+    #     a = int(a)
+    #     return a + 5
+    #
+    # file_path = "data/conversa_history/conversation_history.json"
+    # llm_tool = init_llm_tool_model(tools=[abc_computer])
+    # #添加记忆
+    # load_memory_from_file(llm_tool.memory,session_id="小明" , file_path=file_path)  # 启动时加载
+    # chat_history = llm_tool.memory.chat_memory.messages  # 从加载的记忆中获取历史
+    # response = llm_tool.invoke({"input": "现在我需要你将13进行abc计算，使用工具得到结果，无论结果对还是需将原始结果发送给我", "chat_history": chat_history})
+    # # 对话结束后保存
+    # save_memory_to_file(llm_tool.memory,session_id="小明",file_path=file_path)
+    # # print(response)
+    # username = "小明"
+    # llm = init_llm_with_memory(username=username)
+    # response = llm.invoke({"input": "我叫什么名字"})
+    # #保存对话内容
+    # save_memory_to_file(llm.memory,session_id=username, file_path="../data/conversa_history/conversation_history.json")
+    # print(response)
+    llm =init_llm_with_memory(username="小白")
+    response = llm.invoke({"input": "请帮我搜索一下习近平的简介"})
+    print(response)
+    pass

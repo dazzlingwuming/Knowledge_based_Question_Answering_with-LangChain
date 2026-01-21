@@ -1,10 +1,8 @@
-from tkinter.font import names
-
 from langchain_community.tools import WikipediaQueryRun
 from langchain_community.utilities import WikipediaAPIWrapper
 from pydantic import BaseModel, Field
 
-from llm_base_model import init_zhipu_llm
+from llm_model.llm_base_model import init_zhipu_llm
 
 
 def t1():

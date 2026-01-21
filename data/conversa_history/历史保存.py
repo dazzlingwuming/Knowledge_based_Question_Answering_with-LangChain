@@ -33,6 +33,10 @@ def load_memory_from_file(memory, session_id="default_user", file_path="conversa
     """从JSON文件加载记忆"""
     if not os.path.exists(file_path):
         return
+    # 检查文件是否为空
+    if os.path.getsize(file_path) == 0:
+        print(f"文件 {file_path} 为空，跳过加载。")
+        return
     with open(file_path, "r", encoding="utf-8") as f:
         data = json.load(f)
     if session_id not in data:

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LangChain 智能问答系统</title>
     <style>
+        /* 保留原有样式，新增模型类型选择框样式（复用input-group） */
         /* 全局样式重置 */
         * {
             margin: 0;
@@ -185,6 +186,15 @@
     <div class="container">
         <h1 class="title">LangChain 智能问答系统</h1>
 
+        <!-- 新增：模型类型选择框 -->
+        <div class="input-group">
+            <label for="modelType">模型类型</label>
+            <select id="modelType" class="form-input">
+                <option value="memory" selected>记忆型模型（带会话历史）</option>
+                <option value="tool">工具型模型（调用工具）</option>
+            </select>
+        </div>
+
         <!-- 会话ID输入框 -->
         <div class="input-group">
             <label for="sessionId">会话ID（Session ID）</label>
@@ -219,6 +229,7 @@
     <script>
         // 获取DOM元素
         const submitBtn = document.getElementById('submit');
+        const modelTypeInput = document.getElementById('modelType'); // 新增
         const sessionIdInput = document.getElementById('sessionId');
         const passwordInput = document.getElementById('password');
         const questionInput = document.getElementById('question');
@@ -226,7 +237,8 @@
 
         // 提交按钮点击事件
         submitBtn.addEventListener('click', async () => {
-            // 1. 获取输入值
+            // 1. 获取输入值（新增model_type）
+            const modelType = modelTypeInput.value.trim(); // 新增
             const sessionId = sessionIdInput.value.trim() || "default";
             const password = passwordInput.value.trim();
             const question = questionInput.value.trim();
@@ -251,13 +263,14 @@
             `;
 
             try {
-                // 4. 调用后端API（包含session_id、password、question）
+                // 4. 调用后端API（新增model_type参数）
                 const response = await fetch('http://127.0.0.1:8000/api/qa', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
+                        model_type: modelType, // 新增
                         session_id: sessionId,
                         password: password,
                         question: question
