@@ -123,8 +123,11 @@ def init_llm_tool_model(tools=[]):
 
 
 class LLMBaseModel:
-    def __init__(self):
-        self.llm = init_llm_with_memory()
+    def __init__(self , model_type: str = "memory"):
+        if model_type == "memory":
+            self.llm = init_llm_with_memory()
+        elif model_type == "tool":
+            self.llm = init_llm_tool_model()
 
     def chat_completion(self, input: str) -> str:
         response = self.llm.invoke({"input": {input}})
